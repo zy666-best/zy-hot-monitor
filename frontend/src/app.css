@@ -1,0 +1,153 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-sans: 'IBM Plex Sans', sans-serif;
+  --animate-spotlight: spotlight 2s ease 0.75s 1 forwards;
+}
+
+@keyframes spotlight {
+  0% {
+    opacity: 0;
+    transform: translate(-72%, -62%) scale(0.5);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -40%) scale(1);
+  }
+}
+
+:root {
+  color-scheme: dark;
+  --bg-base: #07111a;
+  --bg-elevated: rgba(8, 20, 32, 0.72);
+  --bg-panel: rgba(9, 17, 27, 0.84);
+  --line-soft: rgba(154, 176, 196, 0.12);
+  --line-strong: rgba(108, 247, 214, 0.22);
+  --text-main: #edf6ff;
+  --text-muted: #95aabd;
+  --accent: #6cf7d6;
+  --accent-strong: #90d7ff;
+  --accent-warm: #ffc56c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(circle at top, rgba(108, 247, 214, 0.12), transparent 26%),
+    radial-gradient(circle at 85% 18%, rgba(144, 215, 255, 0.12), transparent 18%),
+    linear-gradient(180deg, #07111a 0%, #050b12 54%, #03070d 100%);
+  color: var(--text-main);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 54px 54px;
+  mask-image: linear-gradient(180deg, rgba(255, 255, 255, 0.45), transparent 90%);
+  opacity: 0.22;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(108, 247, 214, 0.28);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(108, 247, 214, 0.22);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panel-surface {
+  background: linear-gradient(180deg, rgba(10, 20, 32, 0.85), rgba(5, 10, 17, 0.92));
+  border: 1px solid var(--line-soft);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(108, 247, 214, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(108, 247, 214, 0.08) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(180deg, rgba(255, 255, 255, 0.7), transparent 85%);
+}
+
+.beam-line {
+  position: absolute;
+  inset-inline: auto 12%;
+  top: -20%;
+  width: 1px;
+  height: 140%;
+  background: linear-gradient(180deg, transparent, rgba(144, 215, 255, 0.5), transparent);
+  filter: blur(0.5px);
+  opacity: 0.5;
+  transform: rotate(18deg);
+}
+
+.beam-line:nth-child(2) {
+  right: 30%;
+  opacity: 0.22;
+  transform: rotate(12deg);
+}
+
+.beam-line:nth-child(3) {
+  right: 48%;
+  opacity: 0.18;
+  transform: rotate(8deg);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
