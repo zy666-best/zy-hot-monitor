@@ -15,14 +15,13 @@ export function HeaderBar({
 }) {
   return (
     <header className="sticky top-0 z-50 border-b border-white/8 bg-slate-950/65 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-[1920px] items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-10">
         <div className="flex min-w-0 items-center gap-4">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-300/10 text-emerald-200 shadow-[0_0_50px_rgba(108,247,214,0.16)]">
             <Flame className="h-5 w-5" />
           </div>
           <div>
             <p className="font-display text-lg font-semibold tracking-tight text-white">Hot Monitor</p>
-            <p className="text-sm text-slate-400">为抢热点而生，但只保留值得分享的信号。</p>
           </div>
         </div>
 

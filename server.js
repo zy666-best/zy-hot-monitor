@@ -159,6 +159,11 @@ app.post('/api/notifications/read', (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/api/notifications/delete-all', (req, res) => {
+  runSql('DELETE FROM notifications');
+  res.json({ success: true });
+});
+
 // SSE endpoint for real-time push
 app.get('/api/notifications/stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');

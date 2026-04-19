@@ -101,7 +101,7 @@ function App() {
   }
 
   async function loadRecentTopics() {
-    const { data } = await api('/topics?limit=12');
+    const { data } = await api('/topics?limit=100');
     setRecentTopics(data);
   }
 
@@ -347,6 +347,12 @@ function App() {
     pushToast('未读通知已清空', 'success');
   }
 
+  async function deleteAllNotifications() {
+    await api('/notifications/delete-all', { method: 'POST', body: {} });
+    await Promise.all([loadNotifications(), loadStatus()]);
+    pushToast('通知历史已清空', 'success');
+  }
+
   async function saveSettings() {
     try {
       await withBusy('saveSettings', async () => {
@@ -413,7 +419,7 @@ function App() {
         busy={busy}
       />
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <main className="mx-auto flex max-w-[1920px] flex-col gap-8 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
         <HeroSection
           status={status}
           settings={settings}
@@ -474,7 +480,7 @@ function App() {
         ) : null}
 
         {activeTab === 'notifications' ? (
-          <NotificationsPanel notifications={notifications} markAllRead={markAllRead} />
+          <NotificationsPanel notifications={notifications} markAllRead={markAllRead} deleteAllNotifications={deleteAllNotifications} />
         ) : null}
 
         {activeTab === 'settings' ? (

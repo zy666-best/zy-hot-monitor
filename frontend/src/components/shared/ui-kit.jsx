@@ -18,7 +18,7 @@ export function PanelShell({ eyebrow, title, description, action, children }) {
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-slate-400">{eyebrow}</p>
           <h2 className="mt-2 font-display text-2xl text-white">{title}</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">{description}</p>
+          {description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">{description}</p> : null}
         </div>
         {action}
       </div>
@@ -78,7 +78,7 @@ export function MiniPanel({ label, value, helper }) {
     <div className="rounded-[1.25rem] border border-white/10 bg-black/20 p-4">
       <p className="text-sm text-slate-400">{label}</p>
       <p className="mt-2 font-display text-2xl text-white">{value}</p>
-      <p className="mt-2 text-xs leading-5 text-slate-500">{helper}</p>
+      {helper ? <p className="mt-2 text-xs leading-5 text-slate-500">{helper}</p> : null}
     </div>
   );
 }
@@ -91,7 +91,7 @@ export function StatusCard({ icon: Icon, label, value, helper }) {
         {label}
       </div>
       <p className="mt-3 font-display text-2xl text-white">{value}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-400">{helper}</p>
+      {helper ? <p className="mt-2 text-sm leading-6 text-slate-400">{helper}</p> : null}
     </div>
   );
 }
@@ -206,6 +206,7 @@ export function TopicList({ items, emptyTitle, emptyDescription }) {
               <span className={cn('rounded-full border px-2.5 py-1', sourceTone(item.source))}>{item.source || 'mixed'}</span>
               {engine ? <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-300">引擎: {engine}</span> : null}
               {domain ? <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-300">站点: {domain}</span> : null}
+              {typeof item.score === 'number' && item.score > 0 ? <span className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2.5 py-1 text-violet-100">AI 置信度: {Math.round(item.score)}</span> : null}
               {ruleScore > 0 ? <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-emerald-100">规则分: {Math.round(ruleScore)}</span> : null}
               {crossSourceCount > 1 ? <span className="rounded-full border border-sky-300/15 bg-sky-400/10 px-2.5 py-1 text-sky-100">多源命中: {crossSourceCount}</span> : null}
               {item.domain ? <span>领域: {item.domain}</span> : null}
