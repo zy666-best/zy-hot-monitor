@@ -29,9 +29,13 @@ export function sourceTone(source) {
     return 'bg-sky-400/10 text-sky-200 border-sky-300/15';
   }
 
+  if (source === 'news') {
+    return 'bg-amber-300/10 text-amber-100 border-amber-200/15';
+  }
+
   if (source === 'web') {
     return 'bg-emerald-400/10 text-emerald-200 border-emerald-300/15';
   }
 
-  return 'bg-amber-300/10 text-amber-100 border-amber-200/15';
+  return 'bg-white/5 text-slate-200 border-white/10';
 }

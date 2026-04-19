@@ -3,6 +3,8 @@ const { searchWebMulti } = require('./search');
 const { searchTweets, getTrends } = require('./twitter');
 const { analyzeHotTopics } = require('./ai');
 const { notifyHotTopics } = require('./email');
+const { filterReliableResults } = require('./reliability');
+const { logResultStage, logSourceBreakdown } = require('./debug-log');
 
 /**
  * Collect hot topics for all enabled domains
@@ -13,17 +15,19 @@ async function collectHotTopics() {
 
   console.log(`[Hotspot] Collecting for ${domains.length} domains...`);
 
-  for (const domain of domains) {
-    try {
-      await collectForDomain(domain);
-    } catch (err) {
-      console.error(`[Hotspot] Error collecting "${domain.name}":`, err.message);
+  const startedAt = Date.now();
+  const results = await Promise.allSettled(domains.map((domain) => collectForDomain(domain)));
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      console.error(`[Hotspot] Error collecting "${domains[index].name}":`, result.reason?.message || result.reason);
     }
-  }
+  });
+  console.log(`[Hotspot] Collection finished in ${Date.now() - startedAt}ms`);
 }
 
 async function collectForDomain(domain) {
   const name = domain.name;
+  const startedAt = Date.now();
   console.log(`[Hotspot] Collecting: "${name}"`);
 
   // Gather from multiple sources
@@ -55,13 +59,24 @@ async function collectForDomain(domain) {
 
   const combined = [...allResults, ...relevantTrends];
 
-  if (!combined.length) {
+  logSourceBreakdown(`Hotspot raw sources for "${name}"`, {
+    web: webResults.status === 'fulfilled' ? webResults.value : [],
+    twitter: twitterData.status === 'fulfilled' ? twitterData.value.tweets : [],
+    trends: relevantTrends,
+  });
+  logResultStage(`Hotspot raw combined for "${name}"`, combined);
+
+  const filteredResults = filterReliableResults(combined, { mode: 'hotspot', query: name });
+  logResultStage(`Hotspot filtered for "${name}"`, filteredResults);
+
+  if (!filteredResults.length) {
     console.log(`[Hotspot] No results for "${name}"`);
     return;
   }
 
   // AI analyze and score
-  const topics = await analyzeHotTopics(name, combined);
+  const topics = await analyzeHotTopics(name, filteredResults);
+  logResultStage(`Hotspot analyzed topics for "${name}"`, topics);
 
   if (!topics.length) {
     console.log(`[Hotspot] No topics extracted for "${name}"`);
@@ -74,16 +89,34 @@ async function collectForDomain(domain) {
   const newTopics = [];
   for (const t of topics) {
     const existing = queryOne(
-      'SELECT id FROM hot_topics WHERE title = ? AND domain = ?',
-      [t.title, name]
+      `SELECT id FROM hot_topics
+       WHERE (source_url != '' AND source_url = ?)
+          OR (title = ? AND domain = ?)`,
+      [t.source_items?.[0]?.url || '', t.title, name]
     );
     if (!existing) {
       const sourceUrl = t.source_items?.[0]?.url || '';
       const sourceType = t.source_items?.[0]?.source || 'mixed';
+      const sourceMeta = t.source_items?.[0] || {};
       runSql(
-        `INSERT INTO hot_topics (title, summary, source, source_url, score, domain, is_verified)
-         VALUES (?, ?, ?, ?, ?, ?, 1)`,
-        [t.title, t.summary || '', sourceType, sourceUrl, t.score || 0, name]
+        `INSERT INTO hot_topics (
+           title, summary, source, source_url, score, domain, is_verified,
+           source_type, source_engine, source_domain, language, rule_score, cross_source_count
+         ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)`,
+        [
+          t.title,
+          t.summary || '',
+          sourceType,
+          sourceUrl,
+          t.score || 0,
+          name,
+          sourceMeta.sourceType || '',
+          sourceMeta.sourceEngine || '',
+          sourceMeta.sourceDomain || '',
+          sourceMeta.language || '',
+          sourceMeta.ruleScore || sourceMeta.rule_score || 0,
+          sourceMeta.crossSourceCount || sourceMeta.cross_source_count || 1,
+        ]
       );
       newTopics.push(t);
     }
@@ -93,6 +126,8 @@ async function collectForDomain(domain) {
   if (newTopics.length > 0) {
     await notifyHotTopics(name, newTopics);
   }
+
+  console.log(`[Hotspot] Domain "${name}" finished in ${Date.now() - startedAt}ms`);
 }
 
 module.exports = { collectHotTopics, collectForDomain };

@@ -1,6 +1,7 @@
 import { Search } from 'lucide-react';
 import { ActionButton, LabeledInput, PanelShell, TopicList } from '../shared/ui-kit';
 import { cn } from '../../lib/utils';
+import { SEARCH_SOURCE_OPTIONS } from '../../App';
 
 export function SearchPanel({
   searchQuery,
@@ -25,10 +26,7 @@ export function SearchPanel({
           <div>
             <p className="mb-3 text-sm text-slate-400">数据源</p>
             <div className="flex flex-wrap gap-2">
-              {[
-                { id: 'web', label: '网页搜索' },
-                { id: 'twitter', label: 'Twitter / X' },
-              ].map((source) => {
+              {SEARCH_SOURCE_OPTIONS.map((source) => {
                 const active = searchSources.includes(source.id);
                 return (
                   <button

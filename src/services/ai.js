@@ -1,6 +1,7 @@
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const MODEL = 'openai/gpt-4o-mini';
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const { filterReliableResults } = require('./reliability');
 
 async function callAI(systemPrompt, userPrompt, jsonMode = true) {
   if (!OPENROUTER_API_KEY) {
@@ -65,6 +66,7 @@ async function verifyResults(keyword, results) {
 2. 假冒/虚假内容（伪造的新闻、公告等）
 3. 与关键词无实质关联的内容（只是随便提到了关键词）
 4. 过时的旧闻重发
+5. 低质量社媒噪音，例如随手回复、上下文不足的短帖、互动极低的帖子
 
 对每个结果返回 JSON 数组，每项包含：
 - index: 原始索引
@@ -75,7 +77,7 @@ async function verifyResults(keyword, results) {
   const userPrompt = `关键词: "${keyword}"
 
 搜索结果:
-${results.map((r, i) => `[${i}] 标题: ${r.title}\n来源: ${r.source}\n内容: ${(r.text || r.summary || '').substring(0, 300)}\nURL: ${r.url || ''}`).join('\n\n')}
+${results.map((r, i) => `[${i}] 标题: ${r.title}\n来源: ${r.source}\n来源引擎: ${r.sourceEngine || ''}\n站点: ${r.sourceDomain || ''}\n规则分: ${r.ruleScore || r.rule_score || 0}\n内容: ${(r.text || r.summary || '').substring(0, 300)}\nURL: ${r.url || ''}`).join('\n\n')}
 
 请以JSON格式返回 {"results": [...]}`;
 
@@ -90,10 +92,15 @@ ${results.map((r, i) => `[${i}] 标题: ${r.title}\n来源: ${r.source}\n内容:
         ai_confidence: v ? v.confidence : 0,
         ai_reason: v ? v.reason : '未验证'
       };
-    }).filter(r => r.is_verified && r.ai_confidence >= 0.6);
+    }).filter(r => r.is_verified && r.ai_confidence >= 0.6 && (r.ruleScore || r.rule_score || 0) >= 45);
   } catch (err) {
     console.error('AI verify error:', err.message);
-    return results; // Fallback: return all if AI fails
+    return filterReliableResults(results, { mode: 'keyword' }).slice(0, 12).map((result) => ({
+      ...result,
+      is_verified: true,
+      ai_confidence: Math.max(0.55, (result.ruleScore || result.rule_score || 0) / 100),
+      ai_reason: 'AI 不可用，使用规则评分兜底保留',
+    }));
   }
 }
 
@@ -117,7 +124,7 @@ async function analyzeHotTopics(domain, results) {
   const userPrompt = `领域: "${domain}"
 
 原始搜索结果:
-${results.map((r, i) => `[${i}] ${r.title}\n${(r.text || r.summary || '').substring(0, 300)}\n来源: ${r.source} | ${r.url || ''}`).join('\n\n')}
+${results.map((r, i) => `[${i}] ${r.title}\n${(r.text || r.summary || '').substring(0, 300)}\n来源: ${r.source} | 引擎: ${r.sourceEngine || ''} | 站点: ${r.sourceDomain || ''} | 规则分: ${r.ruleScore || r.rule_score || 0} | ${r.url || ''}`).join('\n\n')}
 
 请分析并提炼热点话题：`;
 
@@ -129,7 +136,13 @@ ${results.map((r, i) => `[${i}] ${r.title}\n${(r.text || r.summary || '').substr
     }));
   } catch (err) {
     console.error('AI analyze error:', err.message);
-    return [];
+    return filterReliableResults(results, { mode: 'hotspot' }).slice(0, 6).map((result, index) => ({
+      title: result.title,
+      summary: (result.text || result.summary || '').substring(0, 120),
+      score: Math.max(result.ruleScore || result.rule_score || 0, 50 - index * 2),
+      sources: [results.indexOf(result)].filter((value) => value >= 0),
+      source_items: [result],
+    }));
   }
 }
 

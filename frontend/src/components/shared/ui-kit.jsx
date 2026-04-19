@@ -3,6 +3,14 @@ import { motion } from 'motion/react';
 import { scoreTone, sourceTone, timeAgo } from '../../lib/format';
 import { cn } from '../../lib/utils';
 
+function normalizeItemUrl(item) {
+  return item.source_url || item.url || '';
+}
+
+function detailValue(value) {
+  return String(value || '').trim();
+}
+
 export function PanelShell({ eyebrow, title, description, action, children }) {
   return (
     <section className="panel-surface rounded-[2rem] p-5 sm:p-6 lg:p-7">
@@ -156,44 +164,56 @@ export function TopicList({ items, emptyTitle, emptyDescription }) {
 
   return (
     <div className="space-y-3">
-      {items.map((item, index) => (
-        <motion.article
-          key={`${item.id || item.title}-${index}`}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.24, delay: Math.min(index * 0.04, 0.16) }}
-          className="rounded-[1.5rem] border border-white/8 bg-black/20 p-4 transition hover:border-emerald-300/20 hover:bg-black/30"
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 flex-1">
-              <a
-                href={item.source_url || '#'}
-                target={item.source_url ? '_blank' : undefined}
-                rel="noreferrer"
-                className="font-display text-xl leading-snug text-white transition hover:text-emerald-200"
-              >
-                {item.title}
-              </a>
-              {item.summary ? <p className="mt-3 text-sm leading-7 text-slate-300/85">{item.summary}</p> : null}
+      {items.map((item, index) => {
+        const itemUrl = normalizeItemUrl(item);
+        const engine = detailValue(item.source_engine || item.sourceEngine);
+        const domain = detailValue(item.source_domain || item.sourceDomain);
+        const ruleScore = Number(item.rule_score ?? item.ruleScore ?? 0);
+        const crossSourceCount = Number(item.cross_source_count ?? item.crossSourceCount ?? 0);
+
+        return (
+          <motion.article
+            key={`${item.id || item.title}-${index}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, delay: Math.min(index * 0.04, 0.16) }}
+            className="rounded-[1.5rem] border border-white/8 bg-black/20 p-4 transition hover:border-emerald-300/20 hover:bg-black/30"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <a
+                  href={itemUrl || '#'}
+                  target={itemUrl ? '_blank' : undefined}
+                  rel="noreferrer"
+                  className="font-display text-xl leading-snug text-white transition hover:text-emerald-200"
+                >
+                  {item.title}
+                </a>
+                {item.summary ? <p className="mt-3 text-sm leading-7 text-slate-300/85">{item.summary}</p> : null}
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                {typeof item.score === 'number' && item.score > 0 ? (
+                  <span className={cn('rounded-full border px-3 py-1 text-sm font-semibold', scoreTone(item.score))}>
+                    {Math.round(item.score)}
+                  </span>
+                ) : null}
+                <ChevronRight className="h-4 w-4 text-slate-500" />
+              </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
-              {typeof item.score === 'number' && item.score > 0 ? (
-                <span className={cn('rounded-full border px-3 py-1 text-sm font-semibold', scoreTone(item.score))}>
-                  {Math.round(item.score)}
-                </span>
-              ) : null}
-              <ChevronRight className="h-4 w-4 text-slate-500" />
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+              <span className={cn('rounded-full border px-2.5 py-1', sourceTone(item.source))}>{item.source || 'mixed'}</span>
+              {engine ? <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-300">引擎: {engine}</span> : null}
+              {domain ? <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-300">站点: {domain}</span> : null}
+              {ruleScore > 0 ? <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-emerald-100">规则分: {Math.round(ruleScore)}</span> : null}
+              {crossSourceCount > 1 ? <span className="rounded-full border border-sky-300/15 bg-sky-400/10 px-2.5 py-1 text-sky-100">多源命中: {crossSourceCount}</span> : null}
+              {item.domain ? <span>领域: {item.domain}</span> : null}
+              <span>{timeAgo(item.created_at || item.timestamp)}</span>
             </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-            <span className={cn('rounded-full border px-2.5 py-1', sourceTone(item.source))}>{item.source || 'mixed'}</span>
-            {item.domain ? <span>领域: {item.domain}</span> : null}
-            <span>{timeAgo(item.created_at)}</span>
-          </div>
-        </motion.article>
-      ))}
+          </motion.article>
+        );
+      })}
     </div>
   );
 }

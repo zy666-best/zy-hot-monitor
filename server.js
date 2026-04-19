@@ -6,10 +6,19 @@ const cron = require('node-cron');
 const { getDb, queryAll, queryOne, runSql } = require('./src/db');
 const { checkKeywords, getPendingNotifications } = require('./src/services/monitor');
 const { collectHotTopics } = require('./src/services/hotspot');
-const { searchWebMulti } = require('./src/services/search');
+const {
+  searchWeb,
+  searchBing,
+  searchBingNews,
+  searchBilibili,
+  searchPriorityDomains,
+  searchWebMulti,
+} = require('./src/services/search');
 const { searchTweets, getTrends } = require('./src/services/twitter');
 const { verifyResults, analyzeHotTopics } = require('./src/services/ai');
 const { getSmtpConfig } = require('./src/services/email');
+const { filterReliableResults } = require('./src/services/reliability');
+const { logResultStage, logSourceBreakdown } = require('./src/services/debug-log');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -102,7 +111,7 @@ app.post('/api/domains/collect', async (req, res) => {
 // ==================== Hot Topics API ====================
 
 app.get('/api/topics', (req, res) => {
-  const { domain, keyword, limit } = req.query;
+  const { domain, keyword, limit, type } = req.query;
   let sql = 'SELECT * FROM hot_topics WHERE 1=1';
   const params = [];
 
@@ -113,6 +122,12 @@ app.get('/api/topics', (req, res) => {
   if (keyword) {
     sql += ' AND keyword_id IN (SELECT id FROM keywords WHERE keyword = ?)';
     params.push(keyword);
+  }
+  if (type === 'hotspot') {
+    sql += ' AND keyword_id IS NULL';
+  }
+  if (type === 'keyword') {
+    sql += ' AND keyword_id IS NOT NULL';
   }
 
   sql += ' ORDER BY created_at DESC LIMIT ?';
@@ -211,23 +226,53 @@ app.post('/api/search', async (req, res) => {
   if (!query) return res.status(400).json({ success: false, message: '搜索词不能为空' });
 
   try {
-    const tasks = [];
-    const enabledSources = sources || ['web', 'twitter'];
+    const enabledSources = Array.isArray(sources) && sources.length
+      ? sources
+      : ['web', 'twitter'];
+
+    const sourceTasks = [];
 
     if (enabledSources.includes('web')) {
-      tasks.push(searchWebMulti(query, 10));
+      sourceTasks.push({ key: 'web', run: () => searchWebMulti(query, 10) });
+    }
+    if (enabledSources.includes('duckduckgo')) {
+      sourceTasks.push({ key: 'duckduckgo', run: () => searchWeb(query, 10) });
+    }
+    if (enabledSources.includes('bing')) {
+      sourceTasks.push({ key: 'bing', run: () => searchBing(query, 10) });
+    }
+    if (enabledSources.includes('bing-news')) {
+      sourceTasks.push({ key: 'bing-news', run: () => searchBingNews(query, 8) });
+    }
+    if (enabledSources.includes('priority-sites')) {
+      sourceTasks.push({ key: 'priority-sites', run: () => searchPriorityDomains(query, 8) });
+    }
+    if (enabledSources.includes('bilibili')) {
+      sourceTasks.push({ key: 'bilibili', run: () => searchBilibili(query, 8) });
     }
     if (enabledSources.includes('twitter')) {
-      tasks.push(searchTweets(query, 'Latest').then(d => d.tweets));
+      sourceTasks.push({ key: 'twitter', run: () => searchTweets(query, 'Latest').then((d) => d.tweets) });
     }
 
-    const results = await Promise.allSettled(tasks);
-    const allResults = results
-      .filter(r => r.status === 'fulfilled')
-      .flatMap(r => r.value);
+    const settledResults = await Promise.allSettled(sourceTasks.map((task) => task.run()));
+    const groupedResults = {};
+
+    settledResults.forEach((result, index) => {
+      const key = sourceTasks[index].key;
+      groupedResults[key] = result.status === 'fulfilled' ? result.value : [];
+    });
+
+    const allResults = Object.values(groupedResults).flatMap((items) => items);
+
+    logSourceBreakdown(`Manual search raw sources for "${query}"`, groupedResults);
+    logResultStage(`Manual search raw combined for "${query}"`, allResults);
+
+    const filteredResults = filterReliableResults(allResults, { mode: 'keyword', query });
+    logResultStage(`Manual search filtered for "${query}"`, filteredResults);
 
     // Optionally verify with AI
-    const verified = await verifyResults(query, allResults);
+    const verified = await verifyResults(query, filteredResults);
+    logResultStage(`Manual search verified for "${query}"`, verified);
 
     res.json({ success: true, data: verified });
   } catch (err) {

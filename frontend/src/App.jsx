@@ -19,6 +19,16 @@ const tabs = [
   { id: 'settings', label: '设置' },
 ];
 
+export const SEARCH_SOURCE_OPTIONS = [
+  { id: 'web', label: '网页聚合' },
+  { id: 'duckduckgo', label: 'DuckDuckGo' },
+  { id: 'bing', label: 'Bing 网页' },
+  { id: 'bing-news', label: 'Bing News' },
+  { id: 'priority-sites', label: '国内优先站点' },
+  { id: 'bilibili', label: 'Bilibili' },
+  { id: 'twitter', label: 'Twitter / X' },
+];
+
 const initialStatus = {
   keywords: 0,
   domains: 0,
@@ -51,7 +61,7 @@ function App() {
   const [settings, setSettings] = useState(initialSettings);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [searchSources, setSearchSources] = useState(['web', 'twitter']);
+  const [searchSources, setSearchSources] = useState(['web', 'bilibili', 'twitter']);
   const [keywordInput, setKeywordInput] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [domainFilter, setDomainFilter] = useState('');
@@ -106,14 +116,16 @@ function App() {
   }
 
   async function loadKeywordTopics() {
-    const { data } = await api('/topics?limit=40');
-    setKeywordTopics(data.filter((topic) => topic.keyword_id));
+    const { data } = await api('/topics?type=keyword&limit=40');
+    setKeywordTopics(data);
   }
 
   async function loadHotTopics(selectedDomain = domainFilter) {
-    const query = selectedDomain ? `?domain=${encodeURIComponent(selectedDomain)}&limit=50` : '?limit=50';
+    const query = selectedDomain
+      ? `?type=hotspot&domain=${encodeURIComponent(selectedDomain)}&limit=50`
+      : '?type=hotspot&limit=50';
     const { data } = await api(`/topics${query}`);
-    setHotTopics(data.filter((topic) => !topic.keyword_id));
+    setHotTopics(data);
   }
 
   async function loadNotifications() {
@@ -313,6 +325,10 @@ function App() {
             summary: item.text || item.summary || '',
             source: item.source,
             source_url: item.url,
+            source_engine: item.sourceEngine,
+            source_domain: item.sourceDomain,
+            rule_score: item.ruleScore || item.rule_score || 0,
+            cross_source_count: item.crossSourceCount || item.cross_source_count || 1,
             score: (item.ai_confidence || 0) * 100,
             created_at: item.timestamp,
           })),

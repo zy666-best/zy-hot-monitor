@@ -3,6 +3,8 @@ const { searchWebMulti } = require('./search');
 const { searchTweets } = require('./twitter');
 const { verifyResults } = require('./ai');
 const { notifyKeywordHit } = require('./email');
+const { filterReliableResults } = require('./reliability');
+const { logResultStage, logSourceBreakdown } = require('./debug-log');
 
 // In-memory notification queue for browser push
 const pendingNotifications = [];
@@ -44,13 +46,23 @@ async function checkSingleKeyword(kw) {
     ...(twitterData.status === 'fulfilled' ? twitterData.value.tweets : [])
   ];
 
-  if (!allResults.length) {
+  logSourceBreakdown(`Keyword raw sources for "${keyword}"`, {
+    web: webResults.status === 'fulfilled' ? webResults.value : [],
+    twitter: twitterData.status === 'fulfilled' ? twitterData.value.tweets : [],
+  });
+  logResultStage(`Keyword raw combined for "${keyword}"`, allResults);
+
+  const filteredResults = filterReliableResults(allResults, { mode: 'keyword', query: keyword });
+  logResultStage(`Keyword filtered for "${keyword}"`, filteredResults);
+
+  if (!filteredResults.length) {
     console.log(`[Monitor] No results for "${keyword}"`);
     return;
   }
 
   // AI verify results
-  const verified = await verifyResults(keyword, allResults);
+  const verified = await verifyResults(keyword, filteredResults);
+  logResultStage(`Keyword verified for "${keyword}"`, verified);
 
   if (!verified.length) {
     console.log(`[Monitor] No verified results for "${keyword}"`);
@@ -61,8 +73,10 @@ async function checkSingleKeyword(kw) {
   const newResults = [];
   for (const r of verified) {
     const existing = queryOne(
-      'SELECT id FROM hot_topics WHERE title = ? AND source = ?',
-      [r.title, r.source]
+      `SELECT id FROM hot_topics
+       WHERE (source_url != '' AND source_url = ?)
+          OR (title = ? AND source = ?)`,
+      [r.url || '', r.title, r.source]
     );
     if (!existing) {
       newResults.push(r);
@@ -79,9 +93,25 @@ async function checkSingleKeyword(kw) {
   // Store and notify
   for (const r of newResults) {
     const { lastId } = runSql(
-      `INSERT INTO hot_topics (title, summary, source, source_url, score, domain, is_verified, keyword_id)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
-      [r.title, r.text || r.summary || '', r.source, r.url || '', r.ai_confidence * 100, keyword, kw.id]
+      `INSERT INTO hot_topics (
+         title, summary, source, source_url, score, domain, is_verified, keyword_id,
+         source_type, source_engine, source_domain, language, rule_score, cross_source_count
+       ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        r.title,
+        r.text || r.summary || '',
+        r.source,
+        r.url || '',
+        r.ai_confidence * 100,
+        keyword,
+        kw.id,
+        r.sourceType || '',
+        r.sourceEngine || '',
+        r.sourceDomain || '',
+        r.language || '',
+        r.ruleScore || r.rule_score || 0,
+        r.crossSourceCount || r.cross_source_count || 1,
+      ]
     );
 
     runSql(

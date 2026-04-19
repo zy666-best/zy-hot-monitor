@@ -97,6 +97,9 @@ export function HeroSection({
                   <p className="mt-4 line-clamp-4 text-sm leading-6 text-slate-300/85">{heroTopic.summary || '等待更多摘要内容。'}</p>
                   <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                     <span className={cn('rounded-full border px-2.5 py-1', sourceTone(heroTopic.source))}>{heroTopic.source || 'mixed'}</span>
+                    {heroTopic.source_engine ? <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-300">引擎: {heroTopic.source_engine}</span> : null}
+                    {heroTopic.source_domain ? <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-300">站点: {heroTopic.source_domain}</span> : null}
+                    {Number(heroTopic.rule_score || 0) > 0 ? <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-emerald-100">规则分: {Math.round(heroTopic.rule_score)}</span> : null}
                     {heroTopic.domain ? <span>领域: {heroTopic.domain}</span> : null}
                     <span>{timeAgo(heroTopic.created_at)}</span>
                   </div>

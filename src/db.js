@@ -58,6 +58,13 @@ async function getDb() {
     )
   `);
 
+  ensureColumn('hot_topics', 'source_type', 'TEXT');
+  ensureColumn('hot_topics', 'source_engine', 'TEXT');
+  ensureColumn('hot_topics', 'source_domain', 'TEXT');
+  ensureColumn('hot_topics', 'language', 'TEXT');
+  ensureColumn('hot_topics', 'rule_score', 'REAL DEFAULT 0');
+  ensureColumn('hot_topics', 'cross_source_count', 'INTEGER DEFAULT 1');
+
   db.run(`
     CREATE TABLE IF NOT EXISTS notifications (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,6 +88,15 @@ async function getDb() {
 
   saveDb();
   return db;
+}
+
+function ensureColumn(tableName, columnName, columnDefinition) {
+  const pragma = db.exec(`PRAGMA table_info(${tableName})`);
+  const rows = pragma.length > 0 ? pragma[0].values : [];
+  const existing = new Set(rows.map((row) => row[1]));
+  if (!existing.has(columnName)) {
+    db.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`);
+  }
 }
 
 function saveDb() {
