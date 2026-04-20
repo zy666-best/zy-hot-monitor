@@ -193,6 +193,11 @@ async function searchBilibili(query, maxResults = 6) {
           url: videoUrl,
           sourceEngine: 'bilibili-api',
           sourceType: 'social',
+          author: item.author || '',
+          authorName: item.author || '',
+          views: Number(item.play) || 0,
+          likes: Number(item.like) || 0,
+          replies: Number(item.review) || 0,
         });
       })
       .filter((item) => item.title && item.url);

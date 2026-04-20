@@ -68,7 +68,7 @@ export function SearchPanel({
 
       <PanelShell eyebrow="Results" title="验证结果" description="">
         <TopicFilterBar filters={filters} total={searchResults.length} />
-        <TopicList items={filters.filtered} emptyTitle="等待你的检索" emptyDescription="输入一条消息，系统会从多源拉取结果并做 AI 验证。" />
+        <TopicList items={filters.filtered} emptyTitle="等待你的检索" emptyDescription="输入一条消息，系统会从多源拉取结果并做 AI 验证。" highlightKeyword={searchQuery} />
       </PanelShell>
     </div>
   );

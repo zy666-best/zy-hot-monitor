@@ -1,5 +1,9 @@
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const MODEL = 'openai/gpt-4o-mini';
+const MODELS = [
+  'minimax/minimax-m2.5:free',
+  'openrouter/free',
+  'openai/gpt-4o-mini',
+];
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const { filterReliableResults } = require('./reliability');
 
@@ -8,49 +12,76 @@ async function callAI(systemPrompt, userPrompt, jsonMode = true) {
     throw new Error('OPENROUTER_API_KEY not configured');
   }
 
-  const body = {
-    model: MODEL,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ],
-    temperature: 0.3,
-  };
+  let lastError = null;
 
-  if (jsonMode) {
-    body.response_format = { type: 'json_object' };
-  }
-
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://zy-hot-monitor.local',
-      'X-Title': 'ZY Hot Monitor'
-    },
-    body: JSON.stringify(body)
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`OpenRouter API error ${res.status}: ${errText}`);
-  }
-
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content || '';
-
-  if (jsonMode) {
+  for (const model of MODELS) {
     try {
-      return JSON.parse(content);
-    } catch {
-      // Try to extract JSON from markdown code blocks
-      const match = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (match) return JSON.parse(match[1].trim());
-      throw new Error('AI returned invalid JSON: ' + content.substring(0, 200));
+      const body = {
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt + (jsonMode ? '\n\n重要：只返回纯 JSON，不要用 markdown 包裹，不要添加任何解释文字。' : '') },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.3,
+      };
+
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://zy-hot-monitor.local',
+          'X-Title': 'ZY Hot Monitor'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        lastError = new Error(`OpenRouter API error ${res.status} [${model}]: ${errText}`);
+        console.warn(`[AI] Model ${model} failed (${res.status}), trying next...`);
+        continue;
+      }
+
+      const data = await res.json();
+      const message = data.choices?.[0]?.message || {};
+      // Some models (reasoning models) put content in reasoning field, not content
+      let content = message.content || '';
+      if (!content && message.reasoning) {
+        // Try to extract JSON from reasoning text
+        const jsonMatch = message.reasoning.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) content = jsonMatch[1].trim();
+      }
+
+      if (!content) {
+        lastError = new Error(`Model ${model} returned empty content`);
+        console.warn(`[AI] Model ${model} returned empty content, trying next...`);
+        continue;
+      }
+
+      if (jsonMode) {
+        try {
+          return JSON.parse(content);
+        } catch {
+          const match = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (match) return JSON.parse(match[1].trim());
+          // Try to find first { ... } block
+          const braceMatch = content.match(/\{[\s\S]*\}/);
+          if (braceMatch) return JSON.parse(braceMatch[0]);
+          lastError = new Error('AI returned invalid JSON: ' + content.substring(0, 200));
+          console.warn(`[AI] Model ${model} returned invalid JSON, trying next...`);
+          continue;
+        }
+      }
+      return content;
+    } catch (err) {
+      lastError = err;
+      console.warn(`[AI] Model ${model} error: ${err.message}, trying next...`);
+      continue;
     }
   }
-  return content;
+
+  throw lastError || new Error('All AI models failed');
 }
 
 /**

@@ -62,7 +62,7 @@ export function HotspotsPanel({
 
       <PanelShell eyebrow="Signals" title="热点排序" description="">
         <TopicFilterBar filters={filters} total={hotTopics.length} extraControls={domainSelect} />
-        <TopicList items={filters.filtered} emptyTitle="还没有领域热点" emptyDescription="完成一次热点收集后，这里会出现按价值排序的话题。" />
+        <TopicList items={filters.filtered} emptyTitle="还没有领域热点" emptyDescription="完成一次热点收集后，这里会出现按价值排序的话题。" highlightKeyword={domainFilter} />
       </PanelShell>
     </div>
   );

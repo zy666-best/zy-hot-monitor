@@ -95,8 +95,11 @@ async function checkSingleKeyword(kw) {
     const { lastId } = runSql(
       `INSERT INTO hot_topics (
          title, summary, source, source_url, score, domain, is_verified, keyword_id,
-         source_type, source_engine, source_domain, language, rule_score, cross_source_count
-       ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
+         source_type, source_engine, source_domain, language, rule_score, cross_source_count,
+         ai_reason, summary_type, published_at,
+         author, author_name, author_followers, likes, retweets, replies, views,
+         source_engines, source_domains
+       ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, 'original', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         r.title,
         r.text || r.summary || '',
@@ -111,6 +114,17 @@ async function checkSingleKeyword(kw) {
         r.language || '',
         r.ruleScore || r.rule_score || 0,
         r.crossSourceCount || r.cross_source_count || 1,
+        r.ai_reason || '',
+        r.timestamp || r.createdAt || '',
+        r.author || '',
+        r.authorName || '',
+        Number(r.authorFollowers) || 0,
+        Number(r.likes) || 0,
+        Number(r.retweets) || 0,
+        Number(r.replies) || 0,
+        Number(r.views) || 0,
+        r.sourceEngines || r.sourceEngine || '',
+        r.sourceDomains || r.sourceDomain || '',
       ]
     );
 

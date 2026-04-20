@@ -18,7 +18,7 @@
 | 后端 | Node.js + Express 5 | `server.js` 提供 REST API、静态资源服务、SSE 通知流 |
 | 前端 | React 19 + Vite 8 | 前端已从原生单页迁移为组件化应用 |
 | UI | 自定义组件 + Motion + Lucide | 科技感信息面板风格，支持多 Tab 管理视图 |
-| AI | OpenRouter API (`openai/gpt-4o-mini`) | 用于关键词真实性验证与热点提炼；失败时有规则兜底 |
+| AI | OpenRouter API（多模型降级链） | 用于关键词真实性验证与热点提炼；失败时有规则兜底 |
 | 存储 | `sql.js` + 本地文件持久化 | 数据文件位于 `data/hot-monitor.db` |
 | 搜索源 | DuckDuckGo、Bing、Bing News、优先站点查询、Bilibili、Twitter | 均已接入到当前后端搜索链路 |
 | 通知 | 浏览器通知 + 邮件 (`nodemailer`) + SSE | 页面内通知中心可查历史 |
@@ -72,6 +72,14 @@
 - 所有面板采用垂直堆叠布局（top-down），取代早期左右分栏
 - 支持结果元数据展示：来源、来源引擎、站点、AI 置信度、规则分、多源命中数
 - 热点页和搜索页都能直接看到来源细节，便于人工判断质量
+- 结果卡片展示互动数据（点赞、转发、评论、浏览量）
+- AI 分析理由支持展开/收起，可全局切换
+- 摘要来源标签（AI 摘要 / 原始摘要）
+- 作者信息行（账号名、粉丝数）
+- 原始发布时间展示
+- 关键词高亮（标题和摘要中的匹配词）
+- 多源命中详情 hover 弹出（引擎列表和站点列表）
+- 认证标识（verified badge）和语言标签
 - 所有面板配备共享排序/筛选工具栏（排序：最新/最早/AI 置信度/规则分；筛选：时间范围/来源类型/搜索引擎/站点域名/语言/最低分数）
 - 自定义下拉菜单组件替代原生 `<select>`，统一视觉风格
 - 面板文案精简化，去除冗余描述文字，保持极简风格
@@ -256,6 +264,18 @@ CREATE TABLE settings (
 - `language`
 - `rule_score`
 - `cross_source_count`
+- `ai_reason`：AI 分析理由文本
+- `summary_type`：摘要来源标记（`original` / `ai`）
+- `published_at`：原始发布时间
+- `author`：作者 ID / 账号
+- `author_name`：作者显示名称
+- `author_followers`：作者粉丝数
+- `likes`：点赞数
+- `retweets`：转发数
+- `replies`：评论 / 回复数
+- `views`：浏览量
+- `source_engines`：多源命中引擎列表（逗号分隔）
+- `source_domains`：多源命中站点列表（逗号分隔）
 
 ## 关键 API 约定
 
@@ -381,9 +401,47 @@ CREATE TABLE settings (
 ## 已知边界
 
 - Twitter 依赖外部配额和 Key，当前不足时会退化为网页源为主
-- OpenRouter 模型在某些地区可能不可用，因此系统必须保留规则兜底
+- OpenRouter 免费模型在某些地区可能不可用（403），系统通过多模型降级链和规则兜底双重保障
 - 微博尚未接入独立搜索实现，目前主要依赖优先站点搜索命中
 - Bilibili 已接入独立搜索，但热点模式下是否进入最终结果仍受整体规则评分影响
+
+### 第三轮：信息密度增强与 AI 可用性修复
+
+#### 1. AI 多模型降级链
+
+- 原单一模型 `openai/gpt-4o-mini` 在部分地区被 OpenRouter 封禁（403），账户无余额时付费模型返回 402
+- 改造 `callAI()` 为多模型自动降级：`minimax/minimax-m2.5:free` → `openrouter/free` → `openai/gpt-4o-mini`
+- 兼容 reasoning 模型格式：当 `content` 为 null 时，从 `message.reasoning` 字段提取 JSON
+- JSON 提取增强：依次尝试直接解析、markdown 代码块提取、花括号匹配
+- JSON mode 不再依赖 `response_format` 参数（部分免费模型不支持），改为 system prompt 追加 JSON 输出指令
+
+#### 2. 数据库 schema 扩展（12 个新字段）
+
+- `hot_topics` 表新增互动数据字段：`likes`、`retweets`、`replies`、`views`
+- 新增作者信息字段：`author`、`author_name`、`author_followers`
+- 新增内容元数据字段：`ai_reason`、`summary_type`、`published_at`
+- 新增多源命中详情字段：`source_engines`、`source_domains`（逗号分隔字符串）
+- 所有字段通过 `ensureColumn` 在启动时自动补齐，向后兼容
+
+#### 3. 后端数据采集增强
+
+- `monitor.js`：关键词巡检 INSERT 语句补齐所有新字段，`summary_type='original'`
+- `hotspot.js`：热点收集 INSERT 补齐所有新字段，`summary_type='ai'`
+- `search.js`：Bilibili 搜索提取独立字段（author、views、likes、replies）
+- `reliability.js`：去重合并时输出 `sourceEngines` 和 `sourceDomains` 逗号分隔字符串
+
+#### 4. 前端结果卡片信息密度提升
+
+- `TopicList` 组件大幅重写（`frontend/src/components/shared/ui-kit.jsx`）
+- 新增 `highlightText()` 函数，在标题和摘要中高亮匹配的关键词
+- 新增 `compactNumber()` 函数和 `EngagementPill` 组件，展示互动数据（Heart/Repeat2/MessageCircle/Eye 图标）
+- AI 分析理由行：展开/收起动画（AnimatePresence），全局「展开/收起全部理由」按钮
+- 作者信息行：显示作者名称和粉丝数
+- 摘要来源标签：AI 摘要标记为紫色 badge
+- 原始发布时间显示
+- 多源命中 hover tooltip：展示命中的搜索引擎和站点域名列表
+- 认证标识和语言标签
+- 三个面板（keywords-panel、hotspots-panel、search-panel）传入 `highlightKeyword` prop
 
 ## 后续建议
 

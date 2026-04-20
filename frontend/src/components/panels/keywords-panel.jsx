@@ -50,7 +50,7 @@ export function KeywordsPanel({
 
       <PanelShell eyebrow="Hits" title="关键词命中结果" description="">
         <TopicFilterBar filters={filters} total={keywordTopics.length} />
-        <TopicList items={filters.filtered} emptyTitle="暂无命中记录" emptyDescription="手动检查后，命中的内容会直接出现在这里。" />
+        <TopicList items={filters.filtered} emptyTitle="暂无命中记录" emptyDescription="手动检查后，命中的内容会直接出现在这里。" highlightKeyword={keywords.find(k => k.enabled)?.keyword || ''} />
       </PanelShell>
     </div>
   );

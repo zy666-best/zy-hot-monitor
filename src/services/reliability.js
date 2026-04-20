@@ -237,6 +237,8 @@ function dedupeResults(results) {
     ...result,
     crossSourceCount: result.sourceEngineSet.size,
     cross_source_count: result.sourceEngineSet.size,
+    sourceEngines: [...result.sourceEngineSet].join(','),
+    sourceDomains: [...result.sourceDomainSet].join(','),
   }));
 }
 

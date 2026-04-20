@@ -101,8 +101,11 @@ async function collectForDomain(domain) {
       runSql(
         `INSERT INTO hot_topics (
            title, summary, source, source_url, score, domain, is_verified,
-           source_type, source_engine, source_domain, language, rule_score, cross_source_count
-         ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)`,
+           source_type, source_engine, source_domain, language, rule_score, cross_source_count,
+           ai_reason, summary_type, published_at,
+           author, author_name, author_followers, likes, retweets, replies, views,
+           source_engines, source_domains
+         ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, '', 'ai', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           t.title,
           t.summary || '',
@@ -116,6 +119,16 @@ async function collectForDomain(domain) {
           sourceMeta.language || '',
           sourceMeta.ruleScore || sourceMeta.rule_score || 0,
           sourceMeta.crossSourceCount || sourceMeta.cross_source_count || 1,
+          sourceMeta.timestamp || sourceMeta.createdAt || '',
+          sourceMeta.author || '',
+          sourceMeta.authorName || '',
+          Number(sourceMeta.authorFollowers) || 0,
+          Number(sourceMeta.likes) || 0,
+          Number(sourceMeta.retweets) || 0,
+          Number(sourceMeta.replies) || 0,
+          Number(sourceMeta.views) || 0,
+          sourceMeta.sourceEngines || sourceMeta.sourceEngine || '',
+          sourceMeta.sourceDomains || sourceMeta.sourceDomain || '',
         ]
       );
       newTopics.push(t);

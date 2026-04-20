@@ -65,6 +65,20 @@ async function getDb() {
   ensureColumn('hot_topics', 'rule_score', 'REAL DEFAULT 0');
   ensureColumn('hot_topics', 'cross_source_count', 'INTEGER DEFAULT 1');
 
+  // v2: engagement, author, AI reason, timestamps, multi-source details
+  ensureColumn('hot_topics', 'ai_reason', 'TEXT');
+  ensureColumn('hot_topics', 'summary_type', "TEXT DEFAULT 'original'");
+  ensureColumn('hot_topics', 'published_at', 'TEXT');
+  ensureColumn('hot_topics', 'author', 'TEXT');
+  ensureColumn('hot_topics', 'author_name', 'TEXT');
+  ensureColumn('hot_topics', 'author_followers', 'INTEGER DEFAULT 0');
+  ensureColumn('hot_topics', 'likes', 'INTEGER DEFAULT 0');
+  ensureColumn('hot_topics', 'retweets', 'INTEGER DEFAULT 0');
+  ensureColumn('hot_topics', 'replies', 'INTEGER DEFAULT 0');
+  ensureColumn('hot_topics', 'views', 'INTEGER DEFAULT 0');
+  ensureColumn('hot_topics', 'source_engines', 'TEXT');
+  ensureColumn('hot_topics', 'source_domains', 'TEXT');
+
   db.run(`
     CREATE TABLE IF NOT EXISTS notifications (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
