@@ -272,6 +272,15 @@ function scoreResult(result, context = {}) {
     score -= 6;
   }
 
+  // Keyword text match boost (for rule-based fallback relevance)
+  const query = (context.query || '').toLowerCase();
+  if (query) {
+    const titleLower = (result.title || '').toLowerCase();
+    const textLower = (result.text || result.summary || '').toLowerCase();
+    if (titleLower.includes(query)) score += 12;
+    else if (textLower.includes(query)) score += 6;
+  }
+
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 

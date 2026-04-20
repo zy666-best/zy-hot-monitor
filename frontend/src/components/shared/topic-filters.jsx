@@ -6,7 +6,7 @@ import { cn } from '../../lib/utils';
 const SORT_OPTIONS = [
   { id: 'newest', label: '最新优先' },
   { id: 'oldest', label: '最早优先' },
-  { id: 'score', label: 'AI 置信度' },
+  { id: 'score', label: 'AI 相关度' },
   { id: 'rule_score', label: '规则分' },
 ];
 

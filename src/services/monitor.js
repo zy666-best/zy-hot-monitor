@@ -1,7 +1,7 @@
 const { queryAll, queryOne, runSql } = require('../db');
 const { searchWebMulti } = require('./search');
 const { searchTweets } = require('./twitter');
-const { verifyResults } = require('./ai');
+const { verifyResults, expandQuery } = require('./ai');
 const { notifyKeywordHit } = require('./email');
 const { filterReliableResults } = require('./reliability');
 const { logResultStage, logSourceBreakdown } = require('./debug-log');
@@ -35,20 +35,26 @@ async function checkSingleKeyword(kw) {
   const keyword = kw.keyword;
   console.log(`[Monitor] Searching: "${keyword}"`);
 
-  // Search from multiple sources in parallel
-  const [webResults, twitterData] = await Promise.allSettled([
-    searchWebMulti(keyword, 8),
-    searchTweets(keyword, 'Latest')
-  ]);
+  // Query expansion: generate semantic variants for better recall
+  const expandedQueries = await expandQuery(keyword);
 
-  const allResults = [
-    ...(webResults.status === 'fulfilled' ? webResults.value : []),
-    ...(twitterData.status === 'fulfilled' ? twitterData.value.tweets : [])
-  ];
+  // Search from multiple sources in parallel, using all expanded queries
+  const searchPromises = expandedQueries.map(q =>
+    Promise.allSettled([
+      searchWebMulti(q, 8),
+      searchTweets(q, 'Latest')
+    ])
+  );
+  const expandedResults = await Promise.all(searchPromises);
 
-  logSourceBreakdown(`Keyword raw sources for "${keyword}"`, {
-    web: webResults.status === 'fulfilled' ? webResults.value : [],
-    twitter: twitterData.status === 'fulfilled' ? twitterData.value.tweets : [],
+  const allResults = [];
+  for (const [webResults, twitterData] of expandedResults) {
+    if (webResults.status === 'fulfilled') allResults.push(...webResults.value);
+    if (twitterData.status === 'fulfilled') allResults.push(...twitterData.value.tweets);
+  }
+
+  logSourceBreakdown(`Keyword raw sources for "${keyword}" (expanded: ${expandedQueries.length} queries)`, {
+    total: allResults,
   });
   logResultStage(`Keyword raw combined for "${keyword}"`, allResults);
 
@@ -105,7 +111,7 @@ async function checkSingleKeyword(kw) {
         r.text || r.summary || '',
         r.source,
         r.url || '',
-        r.ai_confidence * 100,
+        (r.ai_relevance || r.ai_confidence || 0) * 100,
         keyword,
         kw.id,
         r.sourceType || '',

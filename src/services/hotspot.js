@@ -1,7 +1,7 @@
 const { queryAll, queryOne, runSql } = require('../db');
 const { searchWebMulti } = require('./search');
 const { searchTweets, getTrends } = require('./twitter');
-const { analyzeHotTopics } = require('./ai');
+const { analyzeHotTopics, expandQuery } = require('./ai');
 const { notifyHotTopics } = require('./email');
 const { filterReliableResults } = require('./reliability');
 const { logResultStage, logSourceBreakdown } = require('./debug-log');
@@ -30,20 +30,29 @@ async function collectForDomain(domain) {
   const startedAt = Date.now();
   console.log(`[Hotspot] Collecting: "${name}"`);
 
-  // Gather from multiple sources
-  const [webResults, twitterData, trends] = await Promise.allSettled([
-    searchWebMulti(`${name} 最新热点 新闻`, 10),
-    searchTweets(name, 'Top'),
-    getTrends(1) // worldwide trends
-  ]);
+  // Query expansion for better domain coverage
+  const expandedQueries = await expandQuery(name);
 
-  const allResults = [
-    ...(webResults.status === 'fulfilled' ? webResults.value : []),
-    ...(twitterData.status === 'fulfilled' ? twitterData.value.tweets : [])
-  ];
+  // Gather from multiple sources using expanded queries
+  const searchPromises = expandedQueries.map(q =>
+    Promise.allSettled([
+      searchWebMulti(`${q} 最新热点 新闻`, 10),
+      searchTweets(q, 'Top'),
+    ])
+  );
+  const expandedResults = await Promise.all(searchPromises);
+
+  const allResults = [];
+  for (const [webResults, twitterData] of expandedResults) {
+    if (webResults.status === 'fulfilled') allResults.push(...webResults.value);
+    if (twitterData.status === 'fulfilled') allResults.push(...twitterData.value.tweets);
+  }
+
+  // Also fetch worldwide trends (only once, not per expansion)
+  const trends = await getTrends(1).catch(() => []);
 
   // Filter relevant trends
-  const relevantTrends = (trends.status === 'fulfilled' ? trends.value : [])
+  const relevantTrends = (Array.isArray(trends) ? trends : [])
     .filter(t => {
       const query = (t.query || t.title || '').toLowerCase();
       const domainLower = name.toLowerCase();
@@ -59,9 +68,8 @@ async function collectForDomain(domain) {
 
   const combined = [...allResults, ...relevantTrends];
 
-  logSourceBreakdown(`Hotspot raw sources for "${name}"`, {
-    web: webResults.status === 'fulfilled' ? webResults.value : [],
-    twitter: twitterData.status === 'fulfilled' ? twitterData.value.tweets : [],
+  logSourceBreakdown(`Hotspot raw sources for "${name}" (expanded: ${expandedQueries.length} queries)`, {
+    total: allResults,
     trends: relevantTrends,
   });
   logResultStage(`Hotspot raw combined for "${name}"`, combined);
@@ -105,7 +113,7 @@ async function collectForDomain(domain) {
            ai_reason, summary_type, published_at,
            author, author_name, author_followers, likes, retweets, replies, views,
            source_engines, source_domains
-         ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, '', 'ai', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 'ai', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           t.title,
           t.summary || '',
@@ -119,6 +127,7 @@ async function collectForDomain(domain) {
           sourceMeta.language || '',
           sourceMeta.ruleScore || sourceMeta.rule_score || 0,
           sourceMeta.crossSourceCount || sourceMeta.cross_source_count || 1,
+          t.reason || '',
           sourceMeta.timestamp || sourceMeta.createdAt || '',
           sourceMeta.author || '',
           sourceMeta.authorName || '',

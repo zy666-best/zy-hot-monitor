@@ -18,7 +18,7 @@
 | 后端 | Node.js + Express 5 | `server.js` 提供 REST API、静态资源服务、SSE 通知流 |
 | 前端 | React 19 + Vite 8 | 前端已从原生单页迁移为组件化应用 |
 | UI | 自定义组件 + Motion + Lucide | 科技感信息面板风格，支持多 Tab 管理视图 |
-| AI | OpenRouter API（多模型降级链） | 用于关键词真实性验证与热点提炼；失败时有规则兜底 |
+| AI | OpenRouter API（多模型降级链） | 4模型降级链：Gemma 4 31B → MiniMax M2.5 → Nemotron 3 Super → Gemma 4 26B；失败时有规则兜底 |
 | 存储 | `sql.js` + 本地文件持久化 | 数据文件位于 `data/hot-monitor.db` |
 | 搜索源 | DuckDuckGo、Bing、Bing News、优先站点查询、Bilibili、Twitter | 均已接入到当前后端搜索链路 |
 | 通知 | 浏览器通知 + 邮件 (`nodemailer`) + SSE | 页面内通知中心可查历史 |
@@ -29,7 +29,7 @@
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │                        React Frontend                        │
-│  Dashboard | Keywords | Hotspots | Search | Notifications  │
+│  Keywords | Hotspots | Search | Notifications | Settings    │
 │  Settings  | Source Filters | Result Cards | Live Updates   │
 └──────────────────────────────┬──────────────────────────────┘
                                │ REST API / SSE
@@ -59,12 +59,17 @@
 
 ### 主要页面
 
-- 总览：状态卡片、最近信号、系统概况
 - 关键词监控：增删改关键词、手动触发巡检、查看关键词命中结果
 - 热点追踪：增删改领域、手动触发热点收集、按领域查看热点排序
 - 快速核验：手动输入查询词，按指定数据源做一次即时核验
 - 通知中心：浏览器通知与历史记录
-- 设置：SMTP、AI、Twitter 等能力状态查看与配置
+- 设置：SMTP、AI、Twitter 等能力状态查看与配置；AI 相关性评估面板
+
+### 页面布局
+
+- Hero Section 展示在所有 Tab 上方，包含系统状态 badge、热点快照卡片、统计面板
+- 顶部 Header 右侧展示紧凑状态 pill：运行时长、AI 在线/离线、Twitter 在线/离线、巡检节奏
+- 关键词监控和热点追踪面板均附带功能说明文字，帮助用户理解两者区别
 
 ### 当前 UI 特征
 
@@ -355,8 +360,8 @@ CREATE TABLE settings (
 #### 1. 多维排序与筛选系统
 
 - 新增共享 `useTopicFilters` hook 和 `TopicFilterBar` 组件（`frontend/src/components/shared/topic-filters.jsx`）
-- 四个面板（总览/关键词/热点/搜索）统一接入排序筛选
-- 排序支持：最新优先、最早优先、AI 置信度、规则分
+- 四个面板（关键词/热点/搜索/设置）统一接入排序筛选
+- 排序支持：最新优先、最早优先、AI 相关度、规则分
 - 筛选支持：时间范围（1h/今天/3天/7天）、来源类型、搜索引擎、站点域名、语言、最低分数阈值
 - 自定义 `SelectFilter` 下拉菜单组件替代原生 `<select>`，支持 click-outside 关闭
 - AI 置信度标签（紫色 badge）加入 `TopicList` 结果卡片元数据行
@@ -379,6 +384,57 @@ CREATE TABLE settings (
 #### 4. Bug 修复
 
 - 修复总览页「最新热点流」排序和时间范围过滤不生效的问题：API limit 从 12 提升至 100，`parseDate` 增加空值和 Invalid Date 保护
+
+### 第三轮：AI 相关性优化与 UI 精简
+
+#### 1. AI 相关性分析重构
+
+- `verifyResults()` 重写：从单一 `confidence` 改为双维度评估（`confidence` 真实性 + `relevance` 语义相关度），过滤条件 `is_genuine && confidence >= 0.6 && relevance >= 0.7 && ruleScore >= 45`
+- `analyzeHotTopics()` 重写：新增 `relevance`（0-100）和 `reason` 字段，综合分 = `heat * 0.4 + relevance * 0.6`，过滤 `relevance < 50`
+- AI 验证的 prompt 要求 `reason` 必须说明内容与关键词之间的具体关联，而非泛泛描述内容本身
+- 前端标签从"AI 置信度"更名为"AI 相关度"
+
+#### 2. Query Expansion（查询扩展）
+
+- 新增 `expandQuery(keyword)` 函数，通过 AI 生成 3-5 个语义变体查询
+- 关键词监控和热点追踪均接入查询扩展，搜索所有变体后合并结果
+- 对有歧义的关键词（如"DNF"），prompt 约束只取最主流含义的变体
+
+#### 3. AI 超时与兜底策略
+
+- `callAI()` 增加 `AbortSignal.timeout()`，单模型 45s、总预算 90s
+- AI 超时或不可用时，自动回退到规则评分系统做搜索结果过滤
+- 规则评分兜底增加关键词文本匹配加分：标题含关键词 +12，正文含关键词 +6
+
+#### 4. AI 模型列表更新
+
+- 移除 `openai/gpt-4o-mini`（区域 403 不可用）和 `openrouter/free`（元模型易 429）
+- 新模型降级链：`google/gemma-4-31b-it:free` → `minimax/minimax-m2.5:free` → `nvidia/nemotron-3-super-120b-a12b:free` → `google/gemma-4-26b-a4b-it:free`
+
+#### 5. AI 评估机制
+
+- 新增 `src/services/eval.js`：10 个测试用例覆盖强相关、弱相关、无关、标题党、旧闻、低质量社媒、查询扩展变体
+- `runRelevanceEval()` 逐例调用 `verifyResults()`，比对预期结果，输出准确率/误报率/漏报率
+- 后端新增 `POST /api/eval/relevance` 路由
+- 设置页新增"AI 相关性评估"面板，支持一键运行并展示详细结果
+
+#### 6. Bilibili 搜索结果修复
+
+- `search.js` 中 `toResult()` 函数签名扩展，正确传递 `author`、`authorName`、`views`、`likes`、`replies`、`retweets`、`authorFollowers`
+- Bilibili 搜索结果 `text` 字段从拼接式 `textParts.join(' | ')` 改为 `item.description || ''`，修复页面显示乱码
+
+#### 7. 总览页移除与状态信息重定位
+
+- 移除「总览」Tab 及 `DashboardPanel` 组件的渲染
+- 默认页签从 `dashboard` 改为 `keywords`
+- 运转状态信息（服务状态、AI 在线、Twitter 在线、巡检节奏）重新以紧凑 pill 形式集成到 Header 右侧
+- 状态 pill 带颜色区分：在线为绿色/紫色/蓝色，离线为灰色
+
+#### 8. 面板说明文字
+
+- 关键词监控面板：说明精确追踪特定事件、10 分钟巡检、AI 逐条验证保留原文
+- 热点追踪面板：说明广域扫描领域趋势、30 分钟收集、AI 归纳提炼生成摘要
+- 帮助用户理解两个功能的定位差异（精确监听 vs 趋势雷达）
 
 ## 运行与构建
 

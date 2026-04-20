@@ -358,7 +358,7 @@ export function TopicList({ items, emptyTitle, emptyDescription, highlightKeywor
               }
               {engine ? <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-300">引擎: {engine}</span> : null}
               {domain ? <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-300">站点: {domain}</span> : null}
-              {typeof item.score === 'number' && item.score > 0 ? <span className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2.5 py-1 text-violet-100">AI 置信度: {Math.round(item.score)}</span> : null}
+              {typeof item.score === 'number' && item.score > 0 ? <span className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2.5 py-1 text-violet-100">AI 相关度: {Math.round(item.score)}</span> : null}
               {ruleScore > 0 ? <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-emerald-100">规则分: {Math.round(ruleScore)}</span> : null}
               {crossSourceCount > 1 ? (
                 <span
@@ -391,7 +391,7 @@ export function TopicList({ items, emptyTitle, emptyDescription, highlightKeywor
                   className="inline-flex items-center gap-1.5 text-xs text-slate-400 transition hover:text-slate-200"
                 >
                   <ChevronDown className={cn('h-3 w-3 transition-transform', reasonExpanded && 'rotate-180')} />
-                  AI 分析理由
+                  AI 相关性分析
                 </button>
                 <AnimatePresence>
                   {reasonExpanded && (

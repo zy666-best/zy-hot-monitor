@@ -19,6 +19,7 @@ const { verifyResults, analyzeHotTopics } = require('./src/services/ai');
 const { getSmtpConfig } = require('./src/services/email');
 const { filterReliableResults } = require('./src/services/reliability');
 const { logResultStage, logSourceBreakdown } = require('./src/services/debug-log');
+const { runRelevanceEval } = require('./src/services/eval');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -280,6 +281,17 @@ app.post('/api/search', async (req, res) => {
     logResultStage(`Manual search verified for "${query}"`, verified);
 
     res.json({ success: true, data: verified });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ==================== AI Relevance Evaluation API ====================
+
+app.post('/api/eval/relevance', async (req, res) => {
+  try {
+    const report = await runRelevanceEval();
+    res.json({ success: true, data: report });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

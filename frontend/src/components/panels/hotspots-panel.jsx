@@ -29,7 +29,7 @@ export function HotspotsPanel({
 
   return (
     <div id="hotspots-panel" className="space-y-6">
-      <PanelShell eyebrow="Radar" title="热点追踪领域" description="">
+      <PanelShell eyebrow="Radar" title="热点追踪领域" description="广域扫描某个领域的最新趋势。每 30 分钟自动收集，AI 会归纳提炼热点话题并生成摘要评分。适合发现你尚未关注的新动向。">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           <div className="min-w-0 flex-1">
             <LabeledInput
@@ -60,7 +60,7 @@ export function HotspotsPanel({
         </div>
       </PanelShell>
 
-      <PanelShell eyebrow="Signals" title="热点排序" description="">
+      <PanelShell eyebrow="Signals" title="热点排序" description="AI 从原始搜索中提炼归纳的热门话题，已合并相似内容并按综合评分排序。">
         <TopicFilterBar filters={filters} total={hotTopics.length} extraControls={domainSelect} />
         <TopicList items={filters.filtered} emptyTitle="还没有领域热点" emptyDescription="完成一次热点收集后，这里会出现按价值排序的话题。" highlightKeyword={domainFilter} />
       </PanelShell>

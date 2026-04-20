@@ -3,7 +3,7 @@ import { api } from './lib/api';
 import { HeaderBar } from './components/layout/header-bar';
 import { HeroSection } from './components/layout/hero-section';
 import { TabNav } from './components/layout/tab-nav';
-import { DashboardPanel } from './components/panels/dashboard-panel';
+
 import { HotspotsPanel } from './components/panels/hotspots-panel';
 import { KeywordsPanel } from './components/panels/keywords-panel';
 import { NotificationsPanel } from './components/panels/notifications-panel';
@@ -11,7 +11,6 @@ import { SearchPanel } from './components/panels/search-panel';
 import { SettingsPanel } from './components/panels/settings-panel';
 
 const tabs = [
-  { id: 'dashboard', label: '总览' },
   { id: 'keywords', label: '关键词监控' },
   { id: 'hotspots', label: '热点追踪' },
   { id: 'search', label: '快速核验' },
@@ -50,7 +49,7 @@ const initialSettings = {
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('keywords');
   const [status, setStatus] = useState(initialStatus);
   const [keywords, setKeywords] = useState([]);
   const [domains, setDomains] = useState([]);
@@ -432,10 +431,6 @@ function App() {
         />
 
         <TabNav tabs={tabs} activeTab={activeTab} onSelect={switchTab} />
-
-        {activeTab === 'dashboard' ? (
-          <DashboardPanel recentTopics={recentTopics} logs={logs} refreshOverview={refreshOverview} busy={busy} status={status} />
-        ) : null}
 
         {activeTab === 'keywords' ? (
           <KeywordsPanel

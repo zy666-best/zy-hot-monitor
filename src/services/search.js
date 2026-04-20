@@ -34,7 +34,7 @@ function buildHeaders(referer) {
   };
 }
 
-function toResult({ title, text, url, sourceEngine, sourceType = 'web' }) {
+function toResult({ title, text, url, sourceEngine, sourceType = 'web', author, authorName, views, likes, replies, retweets, authorFollowers }) {
   return {
     title: stripHtml(title),
     text: stripHtml(text),
@@ -44,6 +44,13 @@ function toResult({ title, text, url, sourceEngine, sourceType = 'web' }) {
     sourceEngine,
     sourceDomain: extractDomain(url),
     timestamp: new Date().toISOString(),
+    author: author || '',
+    authorName: authorName || '',
+    views: Number(views) || 0,
+    likes: Number(likes) || 0,
+    replies: Number(replies) || 0,
+    retweets: Number(retweets) || 0,
+    authorFollowers: Number(authorFollowers) || 0,
   };
 }
 
@@ -185,11 +192,10 @@ async function searchBilibili(query, maxResults = 6) {
       .slice(0, maxResults)
       .map((item) => {
         const title = item.title || '';
-        const textParts = [item.description, item.author ? `UP主: ${item.author}` : '', item.play ? `播放: ${item.play}` : ''];
         const videoUrl = normalizeBilibiliUrl(item.arcurl, item.bvid);
         return toResult({
           title,
-          text: textParts.filter(Boolean).join(' | '),
+          text: item.description || '',
           url: videoUrl,
           sourceEngine: 'bilibili-api',
           sourceType: 'social',

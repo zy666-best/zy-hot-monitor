@@ -1,4 +1,4 @@
-import { Bell, CheckCheck, Flame, RefreshCcw } from 'lucide-react';
+import { Bell, CheckCheck, Cpu, Flame, Globe, RefreshCcw, Timer } from 'lucide-react';
 import { formatUptime } from '../../lib/format';
 import { cn } from '../../lib/utils';
 import { EmptyState, NotificationRow } from '../shared/ui-kit';
@@ -26,9 +26,34 @@ export function HeaderBar({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3" ref={notifRef}>
-          <div className="hidden rounded-full border border-emerald-300/15 bg-emerald-300/10 px-3 py-2 text-xs text-emerald-100 md:flex md:items-center md:gap-2">
-            <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_16px_rgba(108,247,214,0.8)]" />
-            <span>系统在线 · 已运行 {formatUptime(status.uptime || 0)}</span>
+          {/* Status pills */}
+          <div className="hidden items-center gap-2 lg:flex">
+            <div className="flex items-center gap-1.5 rounded-full border border-emerald-300/15 bg-emerald-300/10 px-3 py-2 text-xs text-emerald-100">
+              <span className="inline-flex h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(108,247,214,0.8)]" />
+              运行 {formatUptime(status.uptime || 0)}
+            </div>
+            <div className={cn(
+              'flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs',
+              status.openrouter
+                ? 'border-violet-300/15 bg-violet-300/10 text-violet-100'
+                : 'border-white/10 bg-white/5 text-slate-400',
+            )}>
+              <Cpu className="h-3 w-3" />
+              AI {status.openrouter ? '在线' : '离线'}
+            </div>
+            <div className={cn(
+              'flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs',
+              status.twitter
+                ? 'border-sky-300/15 bg-sky-300/10 text-sky-100'
+                : 'border-white/10 bg-white/5 text-slate-400',
+            )}>
+              <Globe className="h-3 w-3" />
+              Twitter {status.twitter ? '在线' : '离线'}
+            </div>
+            <div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-300">
+              <Timer className="h-3 w-3" />
+              10 / 30 min
+            </div>
           </div>
 
           <button
